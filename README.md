@@ -280,7 +280,33 @@ curl http://<elastic-ip>/api/v1/products \
   -H "Authorization: Bearer <your SEED_API_TOKEN>"
 ```
 
-### 7. Backups
+### 7. Reliability (do this on a 4 GB instance)
+
+On `t4g.medium` (4 GB RAM) the stack runs comfortably for medium/internal use, but
+add a **swap file** so a memory spike can't trigger the OOM killer and take down
+Postgres or the app:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # persist across reboots
+free -h                                                       # verify swap is active
+```
+
+Already handled for you in `docker-compose.prod.yml`:
+
+- **`restart: always`** — Docker restarts any container that crashes.
+- **`systemctl enable docker`** (step 3) — the whole stack returns after a reboot.
+- **Log rotation** — container logs are capped so they can't fill the disk.
+
+> This is a **single instance**, so it is not highly available — if the EC2 host
+> itself fails, there's downtime until it recovers. That's fine for testing and
+> most internal tools; move to ECS Fargate + RDS (multi-AZ) if you later need
+> zero-downtime resilience.
+
+### 8. Backups
 
 ```bash
 # Nightly DB dump at 3am (optionally to S3 — set BACKUP_S3_BUCKET in env):
@@ -291,7 +317,7 @@ crontab -e
 Also enable **EBS snapshots** of the data volume via AWS Backup / Data Lifecycle
 Manager for point-in-time recovery.
 
-### 8. Storage management
+### 9. Storage management
 
 - Logs are capped (10 MB × 3 per container) so they can't fill the disk.
 - Check usage: `df -h /mnt/data`
@@ -301,7 +327,7 @@ Manager for point-in-time recovery.
   sudo resize2fs /dev/nvme1n1
   ```
 
-### 9. Deploy updates later
+### 10. Deploy updates later
 
 ```bash
 cd ERP-Inventory-management
