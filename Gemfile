@@ -11,6 +11,13 @@ gem 'sidekiq', '~> 7.0'
 # API
 gem 'jbuilder', '~> 2.11'
 gem 'rack-cors'
+gem 'kaminari', '~> 1.2'   # pagination (page/per used in controllers)
+
+# Domain
+gem 'aasm', '~> 5.5'       # Order state machine
+
+# Boot performance
+gem 'bootsnap', require: false
 
 # Authentication
 gem 'devise', '~> 4.9'
@@ -41,5 +48,6 @@ group :test do
   gem 'shoulda-matchers', '~> 5.0'
   gem 'webmock', '~> 3.18'
   gem 'vcr', '~> 6.1'
+  gem 'database_cleaner-active_record', '~> 2.1'
   gem 'simplecov', require: false
 end

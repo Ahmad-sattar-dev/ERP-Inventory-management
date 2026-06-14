@@ -1,0 +1,29 @@
+.git
+.gitignore
+.dockerignore
+docker-compose.yml
+# NOTE: docker-entrypoint.sh is intentionally NOT ignored — the image needs it.
+
+# Local secrets — never bake into the image
+.env
+.env.*
+!.env.example
+
+# Logs and runtime artifacts
+log/*
+tmp/*
+!log/.keep
+!tmp/.keep
+
+# Test/coverage output
+coverage/
+spec/examples.txt
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/
+
+# Dependencies that get installed inside the image
+/usr/local/bundle
+node_modules/

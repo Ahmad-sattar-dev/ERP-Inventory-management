@@ -344,6 +344,4 @@ module Integrations
       customer
     end
   end
-
-  class RetryableError < StandardError; end
 end

@@ -1,0 +1,24 @@
+# Local secrets / environment — never commit
+.env
+.env.*
+!.env.example
+
+# Rails runtime artifacts
+/log/*
+/tmp/*
+!/log/.keep
+!/tmp/.keep
+/storage/*
+
+# Test / coverage output
+/coverage
+spec/examples.txt
+
+# Dependencies
+/node_modules
+
+# OS / editor cruft
+.DS_Store
+.idea/
+.vscode/
+.claude/

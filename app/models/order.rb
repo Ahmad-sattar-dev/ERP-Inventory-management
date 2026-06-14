@@ -140,6 +140,12 @@ class Order < ApplicationRecord
     payments.completed.sum(:amount) >= total
   end
 
+  # Location used when deducting stock on fulfillment. Defaults to the first
+  # active location; override per-order via metadata['fulfillment_location_id'].
+  def fulfillment_location_id
+    metadata["fulfillment_location_id"] || Location.active.first&.id || Location.first&.id
+  end
+
   def balance_due
     total - payments.completed.sum(:amount)
   end

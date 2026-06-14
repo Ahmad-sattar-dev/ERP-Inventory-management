@@ -341,8 +341,4 @@ module Integrations
       nil
     end
   end
-
-  class RateLimitError < StandardError; end
-  class AuthenticationError < StandardError; end
-  class ApiError < StandardError; end
 end
