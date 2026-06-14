@@ -190,9 +190,12 @@ so storage is easy to size and grow.
 
 ### 1. Launch the EC2 instance
 
-- **AMI:** Ubuntu Server 24.04 LTS (x86_64)
-- **Instance type:** `t3.large` (2 vCPU / 8 GB) recommended for medium usage;
-  `t3.medium` (4 GB) works for light traffic.
+- **AMI:** Ubuntu Server 24.04 LTS — pick the **Arm (64-bit Arm)** variant to use
+  the cheaper Graviton instances below (the image builds natively on Arm).
+- **Instance type:** `t4g.medium` (2 vCPU / 4 GB, **Arm/Graviton**) — ~20% cheaper
+  than the equivalent `t3.medium` and a great fit for medium usage. Bump to
+  `t4g.large` (8 GB) only when traffic grows. (x86 `t3.*` also works — the lockfile
+  supports both architectures.)
 - **Storage:**
   - Root volume: **30 GB gp3** (OS, Docker images, logs)
   - Add a second **gp3 data volume: 100 GB** (Postgres + Redis + backups). gp3 can
