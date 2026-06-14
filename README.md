@@ -183,6 +183,10 @@ bundle exec rspec
 
 ## Deploying to AWS (single EC2 + Docker Compose)
 
+> 📘 **For the full start-to-finish walkthrough** (launch the instance → live URL →
+> backups → scheduled start/stop → day-2 ops), see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+> The section below is a condensed reference.
+
 This deploys the whole stack (web + sidekiq + postgres + redis + Caddy for HTTPS)
 to one EC2 instance using `docker-compose.prod.yml`. Suitable for a demo or an
 internal tool (medium scale). Postgres/Redis data live on a **separate EBS volume**
