@@ -47,4 +47,20 @@ Rails.application.routes.draw do
 
   # Health check
   get '/health', to: proc { [200, {}, ['OK']] }
+
+  # Friendly landing response at the root so the bare URL isn't a blank 404.
+  root to: proc {
+    body = {
+      service: 'Apparel Inventory Management API',
+      status: 'ok',
+      message: 'API is running. Authenticate API calls with: Authorization: Bearer <token>',
+      endpoints: {
+        health: '/health',
+        products: '/api/v1/products',
+        orders: '/api/v1/orders',
+        inventory: '/api/v1/inventory'
+      }
+    }.to_json
+    [200, { 'Content-Type' => 'application/json' }, [body]]
+  }
 end
