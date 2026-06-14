@@ -7,6 +7,8 @@ gem 'pg', '~> 1.5'
 gem 'puma', '~> 6.0'
 gem 'redis', '~> 5.0'
 gem 'sidekiq', '~> 7.0'
+# Pin to the 2.x line — connection_pool 3.x breaks Rails 7.1 redis_cache_store.
+gem 'connection_pool', '~> 2.4'
 
 # API
 gem 'jbuilder', '~> 2.11'
