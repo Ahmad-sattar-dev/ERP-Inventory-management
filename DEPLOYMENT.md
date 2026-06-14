@@ -135,6 +135,14 @@ docker --version                 # verify
 
 ## 8. Mount the data volume at /mnt/data
 
+> **Free Plan / single-disk variant:** if you launched with only a root volume
+> (e.g. on the AWS Free Plan with `m7i-flex.large`), there's no separate disk to
+> mount — just create the directories on the root disk and skip to Step 9:
+> ```bash
+> sudo mkdir -p /mnt/data/postgres /mnt/data/redis /mnt/data/backups
+> ```
+> The steps below apply only when you added a **second EBS volume**.
+
 ```bash
 lsblk          # find the 30 GB data disk — usually /dev/nvme1n1 (NOT the root disk)
 ```
@@ -191,13 +199,13 @@ you authenticate to the API.
 ## 10. Build and start the app
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
 First build takes a few minutes (it compiles gems). Watch it migrate and seed:
 
 ```bash
-docker compose -f docker-compose.prod.yml logs -f web
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f web
 ```
 
 When you see `Listening on http://0.0.0.0:3000`, it's up. Press Ctrl-C to stop
@@ -222,7 +230,7 @@ When you have a domain:
 
 1. Create a DNS **A record** `erp.yourdomain.com` → `<ELASTIC_IP>`.
 2. On the server: `nano .env.production` → set `DOMAIN=erp.yourdomain.com`.
-3. `docker compose -f docker-compose.prod.yml up -d`
+3. `docker compose --env-file .env.production -f docker-compose.prod.yml up -d`
 4. Caddy fetches a free TLS cert automatically → `https://erp.yourdomain.com`.
 
 ---
@@ -306,22 +314,22 @@ and `StopInstances`.
 **Deploy updates:**
 ```bash
 cd ERP-Inventory-management && git pull
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
 **Common commands:**
 ```bash
-docker compose -f docker-compose.prod.yml ps               # status
-docker compose -f docker-compose.prod.yml logs -f web      # app logs
-docker compose -f docker-compose.prod.yml logs -f sidekiq  # job logs
-docker compose -f docker-compose.prod.yml restart web      # restart one service
-docker compose -f docker-compose.prod.yml down             # stop the stack
+docker compose --env-file .env.production -f docker-compose.prod.yml ps               # status
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f web      # app logs
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f sidekiq  # job logs
+docker compose --env-file .env.production -f docker-compose.prod.yml restart web      # restart one service
+docker compose --env-file .env.production -f docker-compose.prod.yml down             # stop the stack
 ```
 
 **Rails console / one-off tasks:**
 ```bash
-docker compose -f docker-compose.prod.yml exec web bin/rails console
-docker compose -f docker-compose.prod.yml exec web bin/rails db:migrate
+docker compose --env-file .env.production -f docker-compose.prod.yml exec web bin/rails console
+docker compose --env-file .env.production -f docker-compose.prod.yml exec web bin/rails db:migrate
 ```
 
 **Grow storage with no downtime** (when `df -h /mnt/data` gets ~70% full): increase
@@ -338,7 +346,7 @@ sudo resize2fs /dev/nvme1n1
 |---------|-------|
 | `curl` to the IP times out | Security group allows port 80 from your network? Instance running? |
 | 401 on every API call | Missing/incorrect `Authorization: Bearer <SEED_API_TOKEN>` header |
-| Web container restarting | `docker compose -f docker-compose.prod.yml logs web` — usually a bad value in `.env.production` |
+| Web container restarting | `docker compose --env-file .env.production -f docker-compose.prod.yml logs web` — usually a bad value in `.env.production` |
 | "out of memory" / killed | Confirm swap is on (`free -h`); consider `t4g.large` |
 | Disk full | `df -h` and `docker system prune -f` to remove unused images |
 | DB won't start after reboot | Is `/mnt/data` mounted? `df -h /mnt/data`; check `/etc/fstab` |

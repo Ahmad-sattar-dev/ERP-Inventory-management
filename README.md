@@ -270,8 +270,8 @@ nano .env.production    # paste the values above + set DOMAIN and CORS_ORIGINS
 ### 6. Build and start
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml logs -f web   # watch migrate + seed
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.production -f docker-compose.prod.yml logs -f web   # watch migrate + seed
 ```
 
 The entrypoint waits for Postgres, runs `db:prepare` (migrate + seed), and (with a
@@ -336,7 +336,7 @@ Manager for point-in-time recovery.
 ```bash
 cd ERP-Inventory-management
 git pull
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
 `restart: always` brings every service back automatically after a reboot.

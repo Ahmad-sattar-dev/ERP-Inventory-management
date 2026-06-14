@@ -1,6 +1,11 @@
 # Production stack for a single EC2 host. Self-contained (NOT an override of
 # docker-compose.yml). Run with:
-#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+#
+# IMPORTANT: always pass `--env-file .env.production`. The db service interpolates
+# ${DATABASE_USER}/${DATABASE_PASSWORD}/${DATABASE_NAME} at parse time, which only
+# works when compose's env file points at .env.production. Omitting the flag leaves
+# Postgres with a blank password and the stack fails to start.
 #
 # Differences vs. the dev compose:
 #   - RAILS_ENV=production, app code baked into the image (no source bind-mount)

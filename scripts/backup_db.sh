@@ -24,7 +24,7 @@ FILE="${BACKUP_DIR}/${DATABASE_NAME}_${TIMESTAMP}.sql.gz"
 mkdir -p "$BACKUP_DIR"
 
 echo "[$(date -Is)] Dumping ${DATABASE_NAME} -> ${FILE}"
-docker compose -f docker-compose.prod.yml exec -T db \
+docker compose --env-file .env.production -f docker-compose.prod.yml exec -T db \
   pg_dump -U "$DATABASE_USER" "$DATABASE_NAME" | gzip > "$FILE"
 
 # Optional off-box copy to S3.
