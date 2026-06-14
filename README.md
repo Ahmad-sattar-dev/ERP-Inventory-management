@@ -337,6 +337,64 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 `restart: always` brings every service back automatically after a reboot.
 
+### 11. (Optional) Auto start/stop on a schedule to cut cost
+
+Running only during work hours roughly halves the bill (e.g. weekdays
+9 AM–9 PM ≈ ~$22/mo vs ~$42/mo always-on). Use **Amazon EventBridge Scheduler** to
+start/stop the instance automatically — no Lambda needed. On start, Docker and all
+containers come back up on their own (`restart: always` + `systemctl enable docker`),
+and data is safe on the EBS volumes.
+
+**A. Create an IAM role the scheduler can use** (once):
+
+```bash
+# Trust policy — allow EventBridge Scheduler to assume the role
+cat > scheduler-trust.json <<'JSON'
+{ "Version": "2012-10-17", "Statement": [{
+  "Effect": "Allow",
+  "Principal": { "Service": "scheduler.amazonaws.com" },
+  "Action": "sts:AssumeRole" }] }
+JSON
+
+aws iam create-role --role-name ec2-scheduler-role \
+  --assume-role-policy-document file://scheduler-trust.json
+
+# Permission to start/stop EC2
+aws iam put-role-policy --role-name ec2-scheduler-role \
+  --policy-name ec2-start-stop \
+  --policy-document '{ "Version":"2012-10-17","Statement":[{
+    "Effect":"Allow","Action":["ec2:StartInstances","ec2:StopInstances"],
+    "Resource":"*" }] }'
+```
+
+**B. Create the two schedules** (replace `<INSTANCE_ID>`, `<ACCOUNT_ID>`, `<REGION>`):
+
+```bash
+ROLE_ARN="arn:aws:iam::<ACCOUNT_ID>:role/ec2-scheduler-role"
+
+# START — weekdays 09:00 Pakistan time
+aws scheduler create-schedule --name erp-start \
+  --schedule-expression "cron(0 9 ? * MON-FRI *)" \
+  --schedule-expression-timezone "Asia/Karachi" \
+  --flexible-time-window '{"Mode":"OFF"}' \
+  --target '{"Arn":"arn:aws:scheduler:::aws-sdk:ec2:startInstances","RoleArn":"'"$ROLE_ARN"'","Input":"{\"InstanceIds\":[\"<INSTANCE_ID>\"]}"}'
+
+# STOP — weekdays 21:00 Pakistan time
+aws scheduler create-schedule --name erp-stop \
+  --schedule-expression "cron(0 21 ? * MON-FRI *)" \
+  --schedule-expression-timezone "Asia/Karachi" \
+  --flexible-time-window '{"Mode":"OFF"}' \
+  --target '{"Arn":"arn:aws:scheduler:::aws-sdk:ec2:stopInstances","RoleArn":"'"$ROLE_ARN"'","Input":"{\"InstanceIds\":[\"<INSTANCE_ID>\"]}"}'
+```
+
+**Prefer the console?** EventBridge → **Scheduler → Create schedule** → Recurring,
+Cron `0 9 ? * MON-FRI *`, Timezone **Asia/Karachi** → Target **All APIs** → EC2 →
+`StartInstances` → Input `{"InstanceIds":["<INSTANCE_ID>"]}`. Repeat with `0 21 ...`
+and `StopInstances`.
+
+> The Elastic IP and EBS storage are billed even while stopped, so the URL stays
+> the same and no data is lost — only compute pauses.
+
 ## Sample API Usage
 
 All requests need the `Authorization: Bearer <token>` header (see Authentication
