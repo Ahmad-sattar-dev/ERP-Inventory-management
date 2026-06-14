@@ -207,10 +207,15 @@ so storage is easy to size and grow.
   > Do **not** open 5432 or 6379 — Postgres/Redis stay on the internal Docker network.
 - Allocate an **Elastic IP** and associate it with the instance (stable IP for DNS).
 
-### 2. Point your domain at it
+### 2. (Optional) Point a domain at it
 
-Create an `A` record (e.g. `erp.yourdomain.com`) → the Elastic IP. Caddy needs a
-real domain resolving to the box to issue the TLS certificate automatically.
+**Testing now, no domain?** Skip this — set `DOMAIN=:80` in `.env.production` and
+you'll access the app over plain HTTP at `http://<elastic-ip>/`.
+
+**Have a domain?** Create an `A` record (e.g. `erp.yourdomain.com`) → the Elastic
+IP and set `DOMAIN=erp.yourdomain.com`. Caddy then issues a TLS cert automatically
+(HTTPS). You can switch from `:80` to a real domain anytime — just edit
+`.env.production` and re-run the compose `up` command.
 
 ### 3. Install Docker on the instance
 
@@ -262,12 +267,13 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml logs -f web   # watch migrate + seed
 ```
 
-The entrypoint waits for Postgres, runs `db:prepare` (migrate + seed), and Caddy
-fetches a TLS cert. Then verify:
+The entrypoint waits for Postgres, runs `db:prepare` (migrate + seed), and (with a
+real domain) Caddy fetches a TLS cert. Then verify — use `http://<elastic-ip>` if
+testing without a domain, or `https://your-domain` once DNS is set:
 
 ```bash
-curl https://erp.yourdomain.com/health                  # => OK
-curl https://erp.yourdomain.com/api/v1/products \
+curl http://<elastic-ip>/health                         # => OK
+curl http://<elastic-ip>/api/v1/products \
   -H "Authorization: Bearer <your SEED_API_TOKEN>"
 ```
 

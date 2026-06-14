@@ -98,8 +98,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      DOMAIN: ${DOMAIN}
+    # Reads DOMAIN (used by the Caddyfile). Set DOMAIN=:80 for plain-HTTP
+    # testing on the raw IP, or a real hostname for automatic HTTPS.
+    env_file:
+      - .env.production
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
