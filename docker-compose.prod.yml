@@ -1,0 +1,113 @@
+# Production stack for a single EC2 host. Self-contained (NOT an override of
+# docker-compose.yml). Run with:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Differences vs. the dev compose:
+#   - RAILS_ENV=production, app code baked into the image (no source bind-mount)
+#   - Postgres/Redis are NOT published to the host (internal network only)
+#   - Postgres/Redis data live on a dedicated EBS volume mounted at /mnt/data
+#   - Caddy terminates TLS (automatic Let's Encrypt) and proxies to the app
+#   - restart: always + log rotation so the box survives reboots and won't fill up
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      # Bind to the dedicated EBS data volume (see the deploy guide).
+      - /mnt/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - /mnt/data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+
+  web:
+    build: .
+    image: erp-inventory:latest
+    restart: always
+    command: bundle exec puma -C config/puma.rb
+    env_file:
+      - .env.production
+    environment:
+      RAILS_ENV: production
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      RAILS_LOG_TO_STDOUT: "true"
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+      RAILS_MAX_THREADS: ${RAILS_MAX_THREADS:-5}
+    expose:
+      - "3000"            # internal only — Caddy reaches it over the Docker network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+
+  sidekiq:
+    build: .
+    image: erp-inventory:latest
+    restart: always
+    command: bundle exec sidekiq -C config/sidekiq.yml
+    env_file:
+      - .env.production
+    environment:
+      RAILS_ENV: production
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
+      RAILS_LOG_TO_STDOUT: "true"
+      # web already runs db:prepare; the worker must not race it.
+      SKIP_DB_PREPARE: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    logging: *default-logging
+
+volumes:
+  caddy_data:
+  caddy_config:

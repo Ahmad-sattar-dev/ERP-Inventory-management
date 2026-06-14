@@ -1,0 +1,14 @@
+# Caddy reverse proxy with automatic HTTPS (Let's Encrypt).
+#
+# DOMAIN comes from .env.production. Point an A record for that domain at the
+# EC2 Elastic IP first — Caddy provisions a TLS cert automatically on boot.
+#
+# No domain yet? Replace `{$DOMAIN}` with `:80` to serve plain HTTP on the IP
+# (fine for testing, not for production traffic).
+
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy web:3000 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+}

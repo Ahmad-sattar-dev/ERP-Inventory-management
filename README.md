@@ -181,6 +181,127 @@ bundle exec rspec
 > valid credentials. The notification mailers are stubs that log/produce a plain
 > message rather than render templated emails.
 
+## Deploying to AWS (single EC2 + Docker Compose)
+
+This deploys the whole stack (web + sidekiq + postgres + redis + Caddy for HTTPS)
+to one EC2 instance using `docker-compose.prod.yml`. Suitable for a demo or an
+internal tool (medium scale). Postgres/Redis data live on a **separate EBS volume**
+so storage is easy to size and grow.
+
+### 1. Launch the EC2 instance
+
+- **AMI:** Ubuntu Server 24.04 LTS (x86_64)
+- **Instance type:** `t3.large` (2 vCPU / 8 GB) recommended for medium usage;
+  `t3.medium` (4 GB) works for light traffic.
+- **Storage:**
+  - Root volume: **30 GB gp3** (OS, Docker images, logs)
+  - Add a second **gp3 data volume: 100 GB** (Postgres + Redis + backups). gp3 can
+    be grown online later with no downtime.
+- **Key pair:** create/download one for SSH.
+- **Security group (inbound):**
+  | Port | Source | Why |
+  |------|--------|-----|
+  | 22   | *your IP only* | SSH |
+  | 80   | 0.0.0.0/0 | HTTP → redirects to HTTPS |
+  | 443  | 0.0.0.0/0 | HTTPS |
+  > Do **not** open 5432 or 6379 — Postgres/Redis stay on the internal Docker network.
+- Allocate an **Elastic IP** and associate it with the instance (stable IP for DNS).
+
+### 2. Point your domain at it
+
+Create an `A` record (e.g. `erp.yourdomain.com`) → the Elastic IP. Caddy needs a
+real domain resolving to the box to issue the TLS certificate automatically.
+
+### 3. Install Docker on the instance
+
+```bash
+ssh -i your-key.pem ubuntu@<elastic-ip>
+sudo apt update && sudo apt upgrade -y
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker ubuntu
+sudo systemctl enable docker
+exit                      # log out/in so the docker group applies
+```
+
+### 4. Mount the data volume at /mnt/data
+
+```bash
+lsblk                                  # find the new disk, e.g. /dev/nvme1n1
+sudo mkfs -t ext4 /dev/nvme1n1         # FORMAT — only if the volume is brand new!
+sudo mkdir -p /mnt/data
+sudo mount /dev/nvme1n1 /mnt/data
+
+# Make the mount permanent across reboots:
+echo "UUID=$(sudo blkid -s UUID -o value /dev/nvme1n1) /mnt/data ext4 defaults,nofail 0 2" | sudo tee -a /etc/fstab
+
+sudo mkdir -p /mnt/data/postgres /mnt/data/redis /mnt/data/backups
+```
+
+### 5. Get the code and configure secrets
+
+```bash
+git clone https://github.com/Ahmad-sattar-dev/ERP-Inventory-management.git
+cd ERP-Inventory-management
+cp .env.production.example .env.production
+
+# Generate strong secrets:
+echo "SECRET_KEY_BASE=$(openssl rand -hex 64)"
+echo "AR_ENCRYPTION_PRIMARY_KEY=$(openssl rand -hex 32)"
+echo "AR_ENCRYPTION_DETERMINISTIC_KEY=$(openssl rand -hex 32)"
+echo "AR_ENCRYPTION_KEY_DERIVATION_SALT=$(openssl rand -hex 32)"
+echo "DATABASE_PASSWORD=$(openssl rand -base64 24)"
+echo "SEED_API_TOKEN=$(openssl rand -hex 24)"
+
+nano .env.production    # paste the values above + set DOMAIN and CORS_ORIGINS
+```
+
+### 6. Build and start
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml logs -f web   # watch migrate + seed
+```
+
+The entrypoint waits for Postgres, runs `db:prepare` (migrate + seed), and Caddy
+fetches a TLS cert. Then verify:
+
+```bash
+curl https://erp.yourdomain.com/health                  # => OK
+curl https://erp.yourdomain.com/api/v1/products \
+  -H "Authorization: Bearer <your SEED_API_TOKEN>"
+```
+
+### 7. Backups
+
+```bash
+# Nightly DB dump at 3am (optionally to S3 — set BACKUP_S3_BUCKET in env):
+crontab -e
+0 3 * * * /home/ubuntu/ERP-Inventory-management/scripts/backup_db.sh >> /var/log/erp-backup.log 2>&1
+```
+
+Also enable **EBS snapshots** of the data volume via AWS Backup / Data Lifecycle
+Manager for point-in-time recovery.
+
+### 8. Storage management
+
+- Logs are capped (10 MB × 3 per container) so they can't fill the disk.
+- Check usage: `df -h /mnt/data`
+- **Grow storage with no downtime:** in the AWS console, modify the EBS volume to a
+  larger size, then on the box:
+  ```bash
+  sudo resize2fs /dev/nvme1n1
+  ```
+
+### 9. Deploy updates later
+
+```bash
+cd ERP-Inventory-management
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+`restart: always` brings every service back automatically after a reboot.
+
 ## Sample API Usage
 
 All requests need the `Authorization: Bearer <token>` header (see Authentication
