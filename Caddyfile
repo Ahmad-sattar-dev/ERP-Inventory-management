@@ -8,7 +8,19 @@
 
 {$DOMAIN} {
 	encode gzip
-	reverse_proxy web:3000 {
-		header_up X-Forwarded-Proto {scheme}
+
+	# API and health checks go to the Rails app.
+	@backend path /api/* /health
+	handle @backend {
+		reverse_proxy web:3000 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# Everything else: serve the static front-end (single-page dashboard).
+	handle {
+		root * /srv/ui
+		try_files {path} /index.html
+		file_server
 	}
 }

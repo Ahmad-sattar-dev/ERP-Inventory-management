@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apparel Inventory ERP</title>
+  <style>
+    :root {
+      --bg:#0f1226; --panel:#1a1f3a; --panel2:#232a4d; --ink:#e7ebff; --muted:#9aa3c7;
+      --accent:#5b8cff; --good:#36c08a; --warn:#f0b34a; --bad:#e85d75; --border:#2c335c;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:linear-gradient(135deg,#0f1226,#16213e 60%,#0f3460); color:var(--ink); min-height:100vh; }
+    header { padding:16px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center;
+      gap:16px; flex-wrap:wrap; background:rgba(0,0,0,.25); position:sticky; top:0; z-index:10; }
+    header h1 { font-size:18px; margin:0; font-weight:700; }
+    .dot { width:9px; height:9px; border-radius:50%; background:var(--bad); display:inline-block; margin-right:6px; }
+    .dot.ok { background:var(--good); box-shadow:0 0 8px var(--good); }
+    .spacer { flex:1; }
+    input,select,button,textarea { font:inherit; }
+    input,select,textarea { background:var(--panel2); border:1px solid var(--border); color:var(--ink);
+      padding:8px 10px; border-radius:8px; outline:none; }
+    input:focus,select:focus { border-color:var(--accent); }
+    button { background:var(--accent); color:#fff; border:none; padding:8px 14px; border-radius:8px;
+      cursor:pointer; font-weight:600; }
+    button.sm { padding:5px 10px; font-size:12px; border-radius:6px; }
+    button.secondary { background:var(--panel2); border:1px solid var(--border); }
+    button.danger { background:rgba(232,93,117,.18); color:var(--bad); border:1px solid var(--bad); }
+    button:hover { filter:brightness(1.1); }
+    main { padding:22px; max-width:1180px; margin:0 auto; }
+    .tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
+    .tabs button { background:var(--panel); border:1px solid var(--border); }
+    .tabs button.active { background:var(--accent); border-color:var(--accent); }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px; }
+    .card .n { font-size:24px; font-weight:700; } .card .l { color:var(--muted); font-size:12px; margin-top:3px; }
+    table { width:100%; border-collapse:collapse; background:var(--panel); border-radius:12px; overflow:hidden; }
+    th,td { text-align:left; padding:10px 13px; border-bottom:1px solid var(--border); font-size:14px; vertical-align:middle; }
+    th { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+    tr:last-child td { border-bottom:none; }
+    .pill { padding:3px 9px; border-radius:999px; font-size:12px; font-weight:600; white-space:nowrap; }
+    .pill.good { background:rgba(54,192,138,.16); color:var(--good); }
+    .pill.warn { background:rgba(240,179,74,.16); color:var(--warn); }
+    .pill.muted { background:rgba(154,163,199,.16); color:var(--muted); }
+    .pill.info { background:rgba(91,140,255,.16); color:var(--accent); }
+    .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:16px; }
+    .panel h3 { margin:0 0 12px; font-size:14px; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label { font-size:12px; color:var(--muted); } .field input,.field select { width:140px; }
+    .field.wide input { width:220px; }
+    .toolbar { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+    .actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .msg { margin:12px 0; padding:10px 14px; border-radius:8px; font-size:14px; display:none; }
+    .msg.show { display:block; }
+    .msg.err { background:rgba(232,93,117,.15); color:var(--bad); border:1px solid var(--bad); }
+    .msg.ok { background:rgba(54,192,138,.15); color:var(--good); border:1px solid var(--good); }
+    .hidden { display:none; }
+    .hint { color:var(--muted); font-size:13px; margin-top:6px; }
+    code { background:var(--panel2); padding:1px 6px; border-radius:5px; }
+    /* modal */
+    .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center;
+      justify-content:center; z-index:50; padding:20px; }
+    .overlay.show { display:flex; }
+    .modal { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px;
+      max-width:640px; width:100%; max-height:85vh; overflow:auto; }
+    .modal h2 { margin:0 0 14px; font-size:17px; }
+    .modal .close { float:right; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span id="status-dot" class="dot"></span>Apparel Inventory ERP</h1>
+    <div class="spacer"></div>
+    <input id="token" type="password" placeholder="Paste API token" style="width:240px" />
+    <button id="save-token">Save token</button>
+  </header>
+
+  <main>
+    <div id="msg" class="msg"></div>
+    <div class="tabs">
+      <button data-tab="products" class="active">Products</button>
+      <button data-tab="inventory">Inventory</button>
+      <button data-tab="orders">Orders</button>
+      <button data-tab="customers">Customers</button>
+    </div>
+
+    <!-- PRODUCTS -->
+    <section id="tab-products">
+      <div class="panel">
+        <h3>Create product</h3>
+        <div class="row">
+          <div class="field wide"><label>Name</label><input id="p-name" placeholder="Hooded Sweatshirt" /></div>
+          <div class="field"><label>Brand</label><input id="p-brand" placeholder="DemoBrand" /></div>
+          <div class="field"><label>Size</label><input id="p-size" placeholder="M" /></div>
+          <div class="field"><label>Color</label><input id="p-color" placeholder="Navy" /></div>
+          <div class="field"><label>Price</label><input id="p-price" type="number" step="0.01" value="39.99" /></div>
+          <button id="create-product">Create</button>
+        </div>
+        <div class="hint">Creates an active product with one variant. SKUs auto-generate.</div>
+      </div>
+      <div class="toolbar">
+        <input id="p-search" placeholder="Search name…" />
+        <select id="p-status"><option value="">All statuses</option><option>active</option><option>draft</option><option>archived</option></select>
+        <button class="secondary sm" onclick="loadProducts()">Filter</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>SKU</th><th>Category</th><th>Brand</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="products-body"><tr><td colspan="8">Loading…</td></tr></tbody>
+      </table>
+    </section>
+
+    <!-- INVENTORY -->
+    <section id="tab-inventory" class="hidden">
+      <div class="cards" id="inv-cards"></div>
+      <div class="panel">
+        <h3>Transfer stock between locations</h3>
+        <div class="row">
+          <div class="field"><label>Variant ID</label><input id="t-variant" type="number" value="1" /></div>
+          <div class="field"><label>From location</label><input id="t-from" type="number" value="1" /></div>
+          <div class="field"><label>To location</label><input id="t-to" type="number" value="2" /></div>
+          <div class="field"><label>Quantity</label><input id="t-qty" type="number" value="5" /></div>
+          <button id="do-transfer">Transfer</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="secondary sm" onclick="loadInventory(false)">All items</button>
+        <button class="secondary sm" onclick="loadInventory(true)">Low stock only</button>
+      </div>
+      <table>
+        <thead><tr><th>Variant SKU</th><th>Product</th><th>Location</th><th>On hand</th><th>Reserved</th><th>Available</th><th>Reorder</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="inventory-body"><tr><td colspan="9">Loading…</td></tr></tbody>
+      </table>
+    </section>
+
+    <!-- ORDERS -->
+    <section id="tab-orders" class="hidden">
+      <div class="panel">
+        <h3>Create order</h3>
+        <div class="row">
+          <div class="field"><label>Customer ID</label><input id="o-customer" type="number" value="1" /></div>
+          <div class="field"><label>Variant ID</label><input id="o-variant" type="number" value="1" /></div>
+          <div class="field"><label>Quantity</label><input id="o-qty" type="number" value="2" /></div>
+          <div class="field"><label>Unit price</label><input id="o-price" type="number" step="0.01" value="24.99" /></div>
+          <div class="field"><label>&nbsp;</label><label style="flex-direction:row;display:flex;gap:6px;align-items:center;color:var(--ink)"><input id="o-submit" type="checkbox" style="width:auto" /> Submit (reserve)</label></div>
+          <button id="create-order">Create</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Order #</th><th>Customer</th><th>Status</th><th>Items</th><th>Total</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody id="orders-body"><tr><td colspan="7">Loading…</td></tr></tbody>
+      </table>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section id="tab-customers" class="hidden">
+      <div class="panel">
+        <h3>Create customer</h3>
+        <div class="row">
+          <div class="field wide"><label>Email</label><input id="c-email" placeholder="jane@example.com" /></div>
+          <div class="field"><label>First name</label><input id="c-first" placeholder="Jane" /></div>
+          <div class="field"><label>Last name</label><input id="c-last" placeholder="Doe" /></div>
+          <div class="field"><label>Company</label><input id="c-company" placeholder="(optional)" /></div>
+          <div class="field"><label>Type</label><select id="c-type"><option value="retail">retail</option><option value="wholesale">wholesale</option></select></div>
+          <button id="create-customer">Create</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <input id="c-search" placeholder="Search name/email…" />
+        <select id="c-typef"><option value="">All types</option><option value="retail">retail</option><option value="wholesale">wholesale</option></select>
+        <button class="secondary sm" onclick="loadCustomers()">Filter</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Type</th><th>Orders</th><th>Spent</th><th>Active</th><th>Actions</th></tr></thead>
+        <tbody id="customers-body"><tr><td colspan="8">Loading…</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div class="overlay" id="overlay"><div class="modal"><button class="secondary sm close" onclick="closeModal()">Close</button><div id="modal-content"></div></div></div>
+
+  <script>
+    const API = "";
+    const $ = (id) => document.getElementById(id);
+    let token = localStorage.getItem("erp_token") || "";
+    $("token").value = token;
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+    const money = (n) => "$" + Number(n || 0).toFixed(2);
+
+    function showMsg(t, kind) { const m=$("msg"); m.textContent=t; m.className="msg show "+(kind||""); if(kind==="ok") setTimeout(()=>m.classList.remove("show"),3500); }
+    function setDot(ok) { $("status-dot").className = "dot" + (ok?" ok":""); }
+    function headers() { return { "Authorization":"Bearer "+token, "Content-Type":"application/json" }; }
+    function openModal(html){ $("modal-content").innerHTML=html; $("overlay").classList.add("show"); }
+    function closeModal(){ $("overlay").classList.remove("show"); }
+    $("overlay").onclick = (e)=>{ if(e.target===$("overlay")) closeModal(); };
+
+    async function api(path, opts={}) {
+      const res = await fetch(API+path, { headers:headers(), ...opts });
+      if (res.status===401){ setDot(false); throw new Error("Unauthorized — check the API token (top right)."); }
+      const text = await res.text();
+      let data; try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+      if (!res.ok) { setDot(true); throw new Error(data.message || (data.details&&data.details.join(", ")) || ("HTTP "+res.status)); }
+      setDot(true); return data;
+    }
+    fetch(API+"/health").then(r=>setDot(r.ok)).catch(()=>setDot(false));
+
+    $("save-token").onclick = () => { token=$("token").value.trim(); localStorage.setItem("erp_token",token); showMsg("Token saved.","ok"); loadActive(); };
+
+    let active="products";
+    document.querySelectorAll(".tabs button").forEach(b=>{ b.onclick=()=>{ active=b.dataset.tab;
+      document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("active",x===b));
+      ["products","inventory","orders","customers"].forEach(t=>$("tab-"+t).classList.toggle("hidden",t!==active));
+      loadActive(); }; });
+    function loadActive(){ if(!token){ showMsg("Enter your API token (top right) to load data.","err"); return; }
+      ({products:loadProducts, inventory:()=>loadInventory(false), orders:loadOrders, customers:loadCustomers}[active])(); }
+
+    /* ---------------- PRODUCTS ---------------- */
+    async function loadProducts() {
+      try {
+        const q = new URLSearchParams(); if($("p-search").value) q.set("search",$("p-search").value);
+        if($("p-status").value) q.set("status",$("p-status").value);
+        const d = await api("/api/v1/products?"+q);
+        $("products-body").innerHTML = d.products.map(p=>`<tr>
+          <td>${p.id}</td><td>${esc(p.name)}</td><td><code>${esc(p.sku)}</code></td>
+          <td>${esc(p.category)||"—"}</td><td>${esc(p.brand)||"—"}</td><td>${p.total_stock}</td>
+          <td><span class="pill ${p.low_stock?"warn":"good"}">${p.low_stock?"low stock":esc(p.status)}</span></td>
+          <td class="actions">
+            <button class="secondary sm" onclick="viewProduct(${p.id})">View</button>
+            <button class="secondary sm" onclick="syncProduct(${p.id})">Sync</button>
+            <button class="danger sm" onclick="archiveProduct(${p.id})">Archive</button>
+          </td></tr>`).join("") || `<tr><td colspan="8">No products.</td></tr>`;
+      } catch(e){ showMsg(e.message,"err"); }
+    }
+    $("create-product").onclick = async () => {
+      try {
+        const body={ product:{ name:$("p-name").value, brand:$("p-brand").value, status:"active",
+          product_variants_attributes:[{ size:$("p-size").value, color:$("p-color").value, price:+$("p-price").value }] } };
+        const d=await api("/api/v1/products",{method:"POST",body:JSON.stringify(body)});
+        showMsg("Created product "+d.product.sku,"ok"); loadProducts();
+      } catch(e){ showMsg(e.message,"err"); }
+    };
+    async function viewProduct(id){
+      try {
+        const p=(await api("/api/v1/products/"+id)).product;
+        const inv=await api("/api/v1/products/"+id+"/inventory");
+        openModal(`<h2>${esc(p.name)} <span class="pill info">${esc(p.sku)}</span></h2>
+          <p class="hint">Brand: ${esc(p.brand)||"—"} · Category: ${esc(p.category)||"—"} · Total stock: ${inv.total_stock}</p>
+          <h3>Variants</h3><table><thead><tr><th>SKU</th><th>Size</th><th>Color</th><th>Price</th><th>Qty</th></tr></thead><tbody>
+          ${(p.variants||[]).map(v=>`<tr><td><code>${esc(v.sku)}</code></td><td>${esc(v.size)||"—"}</td><td>${esc(v.color)||"—"}</td><td>${money(v.price)}</td><td>${v.quantity}</td></tr>`).join("")||`<tr><td colspan=5>No variants</td></tr>`}
+          </tbody></table>
+          <h3 style="margin-top:14px">Inventory by location</h3><table><thead><tr><th>Variant</th><th>Location</th><th>Qty</th><th>Available</th></tr></thead><tbody>
+          ${(inv.inventory||[]).map(i=>`<tr><td><code>${esc(i.variant_sku)}</code></td><td>${esc(i.location)}</td><td>${i.quantity}</td><td>${i.available}</td></tr>`).join("")||`<tr><td colspan=4>None</td></tr>`}
+          </tbody></table>`);
+      } catch(e){ showMsg(e.message,"err"); }
+    }
+    async function syncProduct(id){ try{ const d=await api("/api/v1/products/"+id+"/sync",{method:"POST"}); showMsg(d.message||"Sync initiated","ok"); }catch(e){ showMsg(e.message,"err"); } }
+    async function archiveProduct(id){ if(!confirm("Archive this product?"))return; try{ await api("/api/v1/products/"+id,{method:"DELETE"}); showMsg("Product archived","ok"); loadProducts(); }catch(e){ showMsg(e.message,"err"); } }
+
+    /* ---------------- INVENTORY ---------------- */
+    async function loadInventory(lowOnly){
+      try {
+        const s=(await api("/api/v1/inventory/summary")).summary;
+        $("inv-cards").innerHTML=`
+          <div class="card"><div class="n">${s.total_items}</div><div class="l">Items</div></div>
+          <div class="card"><div class="n">${s.total_quantity}</div><div class="l">Total units</div></div>
+          <div class="card"><div class="n">${s.total_reserved}</div><div class="l">Reserved</div></div>
+          <div class="card"><div class="n">${s.low_stock_count}</div><div class="l">Low stock</div></div>
+          <div class="card"><div class="n">${s.out_of_stock_count}</div><div class="l">Out of stock</div></div>`;
+        const d=await api("/api/v1/inventory"+(lowOnly?"/low_stock":""));
+        const items = d.inventory || d.low_stock_items || [];
+        $("inventory-body").innerHTML=items.map(i=>`<tr>
+          <td><code>${esc(i.product_variant.sku)}</code></td><td>${esc(i.product_variant.name)}</td>
+          <td>${esc(i.location.name)}</td><td>${i.quantity}</td><td>${i.reserved_quantity}</td>
+          <td>${i.available_quantity}</td><td>${i.reorder_point??"—"}</td>
+          <td><span class="pill ${i.low_stock?"warn":"good"}">${i.low_stock?"low":esc(i.status)}</span></td>
+          <td class="actions"><button class="secondary sm" onclick="adjustStock(${i.id},'${esc(i.product_variant.sku)}')">Adjust</button></td>
+        </tr>`).join("")||`<tr><td colspan="9">No items.</td></tr>`;
+      } catch(e){ showMsg(e.message,"err"); }
+    }
+    async function adjustStock(id, sku){
+      const q=prompt("Adjust quantity for "+sku+" (use negative to reduce):","10"); if(q===null)return;
+      try{ const d=await api("/api/v1/inventory/"+id+"/adjust",{method:"POST",body:JSON.stringify({quantity:+q,reason:"manual_adjustment"})});
+        showMsg("Adjusted — new qty "+d.inventory.quantity,"ok"); loadInventory(false); }catch(e){ showMsg(e.message,"err"); }
+    }
+    $("do-transfer").onclick = async () => {
+      try{ const body={ product_variant_id:+$("t-variant").value, from_location_id:+$("t-from").value, to_location_id:+$("t-to").value, quantity:+$("t-qty").value };
+        const d=await api("/api/v1/inventory/transfer",{method:"POST",body:JSON.stringify(body)});
+        showMsg(d.message||"Transfer complete","ok"); loadInventory(false); }catch(e){ showMsg(e.message,"err"); }
+    };
+
+    /* ---------------- ORDERS ---------------- */
+    async function loadOrders(){
+      try {
+        const d=await api("/api/v1/orders");
+        $("orders-body").innerHTML=d.orders.map(o=>`<tr>
+          <td><code>${esc(o.order_number)}</code></td><td>${esc(o.customer.name)}</td>
+          <td><span class="pill ${o.status==='cancelled'?'warn':o.status==='delivered'?'good':'info'}">${esc(o.status)}</span></td>
+          <td>${o.item_count}</td><td>${money(o.total)}</td><td>${new Date(o.created_at).toLocaleString()}</td>
+          <td class="actions">
+            <button class="secondary sm" onclick="viewOrder(${o.id})">View</button>
+            <button class="secondary sm" onclick="orderAction(${o.id},'confirm')">Confirm</button>
+            <button class="secondary sm" onclick="shipOrder(${o.id})">Ship</button>
+            <button class="danger sm" onclick="orderAction(${o.id},'cancel')">Cancel</button>
+          </td></tr>`).join("")||`<tr><td colspan="7">No orders yet — create one above.</td></tr>`;
+      } catch(e){ showMsg(e.message,"err"); }
+    }
+    $("create-order").onclick = async () => {
+      try {
+        const body={ order:{ customer_id:+$("o-customer").value, line_items_attributes:[
+          { product_variant_id:+$("o-variant").value, quantity:+$("o-qty").value, unit_price:+$("o-price").value } ] } };
+        if ($("o-submit").checked) body.submit=true;
+        const d=await api("/api/v1/orders",{method:"POST",body:JSON.stringify(body)});
+        showMsg("Created order "+d.order.order_number,"ok"); loadOrders();
+      } catch(e){ showMsg(e.message,"err"); }
+    };
+    async function viewOrder(id){
+      try{ const o=(await api("/api/v1/orders/"+id)).order;
+        openModal(`<h2>${esc(o.order_number)} <span class="pill info">${esc(o.status)}</span></h2>
+          <p class="hint">Customer: ${esc(o.customer.name)} (${esc(o.customer.email)}) · Channel: ${esc(o.channel)}</p>
+          <table><thead><tr><th>SKU</th><th>Item</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>
+          ${(o.line_items||[]).map(li=>`<tr><td><code>${esc(li.sku)}</code></td><td>${esc(li.name)}</td><td>${li.quantity}</td><td>${money(li.unit_price)}</td><td>${money(li.total)}</td></tr>`).join("")||`<tr><td colspan=5>No items</td></tr>`}
+          </tbody></table>
+          <p style="margin-top:12px">Subtotal ${money(o.subtotal)} · Tax ${money(o.tax_amount)} · Shipping ${money(o.shipping_amount)} · <b>Total ${money(o.total)}</b></p>`);
+      }catch(e){ showMsg(e.message,"err"); }
+    }
+    async function orderAction(id, action){
+      try{ const d=await api("/api/v1/orders/"+id+"/"+action,{method:"POST"}); showMsg(d.message||(action+" ok"),"ok"); loadOrders(); }
+      catch(e){ showMsg(e.message,"err"); }
+    }
+    async function shipOrder(id){
+      const t=prompt("Tracking number:","1Z999AA10123456784"); if(t===null)return;
+      try{ const d=await api("/api/v1/orders/"+id+"/ship",{method:"POST",body:JSON.stringify({tracking_number:t,carrier:"ups"})});
+        showMsg(d.message||"shipped","ok"); loadOrders(); }catch(e){ showMsg(e.message,"err"); }
+    }
+
+    /* ---------------- CUSTOMERS ---------------- */
+    async function loadCustomers(){
+      try {
+        const q=new URLSearchParams(); if($("c-search").value) q.set("search",$("c-search").value);
+        if($("c-typef").value) q.set("customer_type",$("c-typef").value);
+        const d=await api("/api/v1/customers?"+q);
+        $("customers-body").innerHTML=d.customers.map(c=>`<tr>
+          <td>${c.id}</td><td>${esc(c.name)}</td><td>${esc(c.email)}</td>
+          <td><span class="pill muted">${esc(c.customer_type)}</span></td><td>${c.total_orders}</td>
+          <td>${money(c.total_spent)}</td><td>${c.active?'<span class="pill good">yes</span>':'<span class="pill warn">no</span>'}</td>
+          <td class="actions">
+            <button class="secondary sm" onclick="viewCustomer(${c.id})">View</button>
+            <button class="danger sm" onclick="deleteCustomer(${c.id})">Delete</button>
+          </td></tr>`).join("")||`<tr><td colspan="8">No customers.</td></tr>`;
+      } catch(e){ showMsg(e.message,"err"); }
+    }
+    $("create-customer").onclick = async () => {
+      try{ const body={ customer:{ email:$("c-email").value, first_name:$("c-first").value, last_name:$("c-last").value,
+        company_name:$("c-company").value, customer_type:$("c-type").value } };
+        const d=await api("/api/v1/customers",{method:"POST",body:JSON.stringify(body)});
+        showMsg("Created customer "+d.customer.name,"ok"); loadCustomers();
+      }catch(e){ showMsg(e.message,"err"); }
+    };
+    async function viewCustomer(id){
+      try{ const c=(await api("/api/v1/customers/"+id)).customer;
+        openModal(`<h2>${esc(c.name)}</h2>
+          <p class="hint">${esc(c.email)} · ${esc(c.customer_type)} · ${c.active?"active":"inactive"}</p>
+          <div class="cards">
+            <div class="card"><div class="n">${c.total_orders}</div><div class="l">Orders</div></div>
+            <div class="card"><div class="n">${money(c.total_spent)}</div><div class="l">Total spent</div></div>
+            <div class="card"><div class="n">${money(c.average_order_value)}</div><div class="l">Avg order</div></div>
+            <div class="card"><div class="n">${money(c.credit_limit)}</div><div class="l">Credit limit</div></div>
+          </div>
+          <p class="hint">Phone: ${esc(c.phone)||"—"} · Company: ${esc(c.company_name)||"—"} · Payment terms: ${c.payment_terms} days</p>`);
+      }catch(e){ showMsg(e.message,"err"); }
+    }
+    async function deleteCustomer(id){ if(!confirm("Delete this customer?"))return;
+      try{ await api("/api/v1/customers/"+id,{method:"DELETE"}); showMsg("Customer deleted","ok"); loadCustomers(); }catch(e){ showMsg(e.message,"err"); } }
+
+    if (token) loadProducts(); else showMsg("Enter your API token (top right) to begin.","err");
+  </script>
+</body>
+</html>
